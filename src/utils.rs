@@ -20,3 +20,23 @@ pub fn is_hidden(entry: &DirEntry) -> bool {
         .map(|s| s.starts_with("."))
         .unwrap_or(false)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bytes_to_human_zero() {
+        assert_eq!(bytes_to_human(0), "0.00 B");
+    }
+
+    #[test]
+    fn bytes_to_human_kilobytes() {
+        assert_eq!(bytes_to_human(1024), "1.00 KB");
+    }
+
+    #[test]
+    fn bytes_to_human_megabytes() {
+        assert_eq!(bytes_to_human(1_048_576), "1.00 MB");
+    }
+}

@@ -19,7 +19,7 @@ pub struct AgeStats {
     pub stale: BucketStats,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AgeBucket {
     Fresh,
     Aging,
@@ -57,5 +57,60 @@ pub fn update_age_stats(m: &Metadata, dstats: &mut file_info::DirStats) {
         bucket.size += m.size();
     } else {
         println!("There was no modified time for");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn days_ago(days: u64) -> SystemTime {
+        SystemTime::now() - Duration::from_secs(days * 24 * 60 * 60)
+    }
+
+    #[test]
+    fn classify_age_now_is_fresh() {
+        assert_eq!(classify_age(SystemTime::now()), AgeBucket::Fresh);
+    }
+
+    #[test]
+    fn classify_age_one_day_is_fresh() {
+        assert_eq!(classify_age(days_ago(1)), AgeBucket::Fresh);
+    }
+
+    #[test]
+    fn classify_age_29_days_is_fresh() {
+        assert_eq!(classify_age(days_ago(29)), AgeBucket::Fresh);
+    }
+
+    #[test]
+    fn classify_age_30_days_is_aging() {
+        assert_eq!(classify_age(days_ago(30)), AgeBucket::Aging);
+    }
+
+    #[test]
+    fn classify_age_90_days_is_aging() {
+        assert_eq!(classify_age(days_ago(90)), AgeBucket::Aging);
+    }
+
+    #[test]
+    fn classify_age_179_days_is_aging() {
+        assert_eq!(classify_age(days_ago(179)), AgeBucket::Aging);
+    }
+
+    #[test]
+    fn classify_age_180_days_is_stale() {
+        assert_eq!(classify_age(days_ago(180)), AgeBucket::Stale);
+    }
+
+    #[test]
+    fn classify_age_one_year_is_stale() {
+        assert_eq!(classify_age(days_ago(365)), AgeBucket::Stale);
+    }
+
+    #[test]
+    fn classify_age_future_is_fresh() {
+        let future = SystemTime::now() + Duration::from_secs(24 * 60 * 60);
+        assert_eq!(classify_age(future), AgeBucket::Fresh);
     }
 }
