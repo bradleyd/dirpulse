@@ -44,5 +44,6 @@ fn main() {
     display::print_top_largest(cli.top_size, &sorted_heap);
     println!();
     display::print_extensions(&dstats.types);
+    println!();
     display::print_file_age(&dstats.age);
 }
