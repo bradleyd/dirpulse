@@ -7,9 +7,14 @@ mod utils;
 
 #[derive(Parser)]
 struct Cli {
+    /// Directory to audit
     target_directory: String,
+    /// Top files by size
     #[clap(short = 'n', long = "top-size", default_value_t = 10)]
     top_size: u64,
+    /// Top files by extenstion
+    #[clap(short = 'e', long = "top-extensions", default_value_t = 10)]
+    top_extensions: u64,
 }
 
 fn main() {
@@ -43,7 +48,7 @@ fn main() {
     println!();
     display::print_top_largest(cli.top_size, &sorted_heap);
     println!();
-    display::print_extensions(&dstats.types);
+    display::print_extensions(&dstats.types, cli.top_extensions);
     println!();
     display::print_file_age(&dstats.age);
 }

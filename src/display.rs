@@ -5,6 +5,39 @@ use crate::age;
 use crate::file_info;
 use crate::utils;
 
+fn truncate_to_width(s: &str, max_width: usize) -> String {
+    if s.chars().count() <= max_width {
+        s.to_string()
+    } else if max_width <= 3 {
+        ".".repeat(max_width)
+    } else {
+        let truncated: String = s.chars().take(max_width - 3).collect();
+        format!("{}...", truncated)
+    }
+}
+
+// Calculate display width accounting for emojis (4 bytes but 2 display chars)
+fn display_width(s: &str) -> usize {
+    let mut width = 0;
+    for c in s.chars() {
+        if c.len_utf8() == 4 {
+            width += 2; // emoji - 2 display chars
+        } else {
+            width += 1;
+        }
+    }
+    width
+}
+
+fn pad_to_width(s: &str, target_width: usize) -> String {
+    let current_width = display_width(s);
+    if current_width >= target_width {
+        s.to_string()
+    } else {
+        format!("{}{}", s, " ".repeat(target_width - current_width))
+    }
+}
+
 pub fn print_hero(
     td: &str,
     dstats: &age::AgeStats,
@@ -12,18 +45,34 @@ pub fn print_hero(
     top_n_percentage: f64,
 ) {
     let width = 90;
-    let title = format!("dirpulse · {}", td);
+    let inner_width = width - 2; // space for "│ " and " │"
+
+    // Truncate title if needed
+    let title = truncate_to_width(&format!("dirpulse · {}", td), inner_width);
+
+    // Calculate available space for filename in stats line
+    // Format: "🔴 {stale} Stale, 📦 Largest: {name} ({size}), 📊 Top 10 = {pct}%"
+    let stale_str = utils::bytes_to_human(dstats.stale.size);
+    let size_str = utils::bytes_to_human(top_file_by_size.1);
+    let pct_str = format!("{:.2}%", top_n_percentage);
+
+    // Calculate fixed parts display width
+    // "🔴 " (4) + stale + " Stale, 📦 Largest: " (20) + name + " (" (2) + size + "), 📊 Top 10 = " (16) + pct
+    // Each emoji is 2 display chars, so: 🔴=2, 📦=2, 📊=2
+    let fixed_display_width = 4 + stale_str.len() + 20 + 2 + size_str.len() + 16 + pct_str.len();
+    let max_name_len = inner_width.saturating_sub(fixed_display_width);
+
+    let truncated_name = truncate_to_width(top_file_by_size.0, max_name_len);
+
     let stats = format!(
-        "🔴 {:<5} Stale, 📦 Largest: {} ({}), 📊 Top 10 = {:.2}%",
-        utils::bytes_to_human(dstats.stale.size),
-        top_file_by_size.0,
-        utils::bytes_to_human(top_file_by_size.1),
-        top_n_percentage
+        "🔴 {} Stale, 📦 Largest: {} ({}), 📊 Top 10 = {}",
+        stale_str, truncated_name, size_str, pct_str
     );
+
     println!("┌{}┐", "─".repeat(width));
-    println!("│ {:<w$} │", title, w = width - 2);
+    println!("│ {} │", pad_to_width(&title, inner_width));
     println!("├{}┤", "─".repeat(width));
-    println!("│ {:<w$} │", stats, w = width - 5);
+    println!("│ {} │", pad_to_width(&stats, inner_width));
     println!("└{}┘", "─".repeat(width));
 }
 
@@ -38,14 +87,14 @@ pub fn print_stat_line(file_count: u64, dir_count: u64, total_size: u64) {
 
 pub fn print_top_largest(top_size: u64, sorted_heap: &Vec<Reverse<file_info::FileInfo>>) {
     println!(
-        "── Top {} Largest ────────────────────────────────────────────────────",
+        "── Top {} Largest ───────────────────────────────────────────────────────",
         top_size
     );
 
     let mut count = 1;
     for entry in sorted_heap {
         println!(
-            "{:<10}   {:<7}   {:<40}",
+            "{:<10}   {:<10}   {:<40}",
             count,
             utils::bytes_to_human(entry.0.size),
             entry
@@ -59,9 +108,12 @@ pub fn print_top_largest(top_size: u64, sorted_heap: &Vec<Reverse<file_info::Fil
     }
 }
 
-pub fn print_extensions(file_types: &HashMap<String, file_info::TypeStats>) {
-    println!("── By Extension ──────────────────────────────────────────────────────");
-    let mut sorted_exts: Vec<_> = file_types.iter().collect();
+pub fn print_extensions(file_types: &HashMap<String, file_info::TypeStats>, top_extensions: u64) {
+    println!(
+        "── Top {} Extension ─────────────────────────────────────────────────────",
+        top_extensions
+    );
+    let mut sorted_exts: Vec<_> = file_types.iter().take(top_extensions as usize).collect();
     sorted_exts.sort_by(|a, b| b.1.file_count.cmp(&a.1.file_count));
     for (key, value) in sorted_exts {
         println!(
@@ -74,7 +126,7 @@ pub fn print_extensions(file_types: &HashMap<String, file_info::TypeStats>) {
 }
 
 pub fn print_file_age(file_age: &age::AgeStats) {
-    println!("── File Age ──────────────────────────────────────────────────────────");
+    println!("── File Age ──────────────────────────────────────────────────────────────");
     println!(
         "{:<30} {:>5} files   {:>10} ",
         "🟢 Fresh (< 30 days)",
