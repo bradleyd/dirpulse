@@ -1,7 +1,6 @@
 use std::{
     cmp::{Ordering, Reverse},
     collections::{BinaryHeap, HashMap},
-    os::unix::fs::MetadataExt,
     path::PathBuf,
     time::SystemTime,
 };
@@ -72,12 +71,12 @@ impl DirStats {
             if let Some(extension) = ext.as_ref() {
                 if let Some(stats) = self.types.get_mut(extension) {
                     stats.file_count += 1;
-                    stats.total_size += m.size();
+                    stats.total_size += m.len();
                 } else {
                     // first time seeing this extension name
                     let stats = TypeStats {
                         file_count: 1,
-                        total_size: m.size(),
+                        total_size: m.len(),
                     };
                     self.types.insert(ext.clone().unwrap(), stats);
                 }
@@ -89,7 +88,7 @@ impl DirStats {
             let finfo = FileInfo {
                 name: fname,
                 path: entry.path().to_path_buf(),
-                size: m.size(),
+                size: m.len(),
                 extension: ext,
                 mod_time: m.modified().unwrap_or(SystemTime::now()),
             };
@@ -98,11 +97,11 @@ impl DirStats {
             self.total_size += finfo.size;
             if self.top_files.len() < top_size {
                 self.top_files.push(Reverse(finfo));
-            } else if let Some(Reverse(smallest)) = self.top_files.peek()
-                && finfo.size > smallest.size
-            {
-                self.top_files.pop();
-                self.top_files.push(Reverse(finfo));
+            } else if let Some(Reverse(smallest)) = self.top_files.peek() {
+                if finfo.size > smallest.size {
+                    self.top_files.pop();
+                    self.top_files.push(Reverse(finfo));
+                }
             }
             Ok(())
         } else {

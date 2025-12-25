@@ -1,6 +1,5 @@
 use std::{
     fs::Metadata,
-    os::unix::fs::MetadataExt,
     time::{Duration, SystemTime},
 };
 
@@ -54,7 +53,7 @@ pub fn update_age_stats(m: &Metadata, dstats: &mut file_info::DirStats) {
             AgeBucket::Stale => &mut dstats.age.stale,
         };
         bucket.count += 1;
-        bucket.size += m.size();
+        bucket.size += m.len();
     } else {
         println!("There was no modified time for");
     }
